@@ -43,7 +43,26 @@ Parameters,
 
 
 ### TransferTokens
+```transition TransferTokens(to: ByStr20, amount: Uint256)```
+The sender can transfer his tokens to someone else. Given he has sufficient tokens to transfer. 
+
+Parameters, 
+| Param        | Description |
+| ----------- | ----------- |
+| to      | Address of recipient |
+| amount  | Number of tokens he / she wants to transfer|
+
 ### balanceOf
+```transition balanceOf(address: ByStr20)```
+Gets the balance of the address associated. 
+
+Parameters, 
+| Param        | Description |
+| ----------- | ----------- |
+| address      | Address of inquired balance |
+
+## Frontend Screenshot
+- Uploaded soon
 
 ## Demo Video 
 - Uploaded Soon 
