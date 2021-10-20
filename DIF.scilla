@@ -1,0 +1,152 @@
+scilla_version 0
+
+library DecentralisedIndex
+
+let zero = Uint128 0
+let yes = True
+let no = False
+
+let one_msg = 
+  fun (msg : Message) => 
+  let nil_msg = Nil {Message} in
+  Cons {Message} msg nil_msg
+
+let two_msgs =
+fun (msg1 : Message) =>
+fun (msg2 : Message) =>
+  let msgs_tmp = one_msg msg2 in
+  Cons {Message} msg1 msgs_tmp
+
+let mk_error_event =
+  fun (err_code : Int32) =>
+    { _exception : "Error" ; err_code : err_code }
+
+
+let insufficient_access_err_code = Int32 -1
+let tokens_not_available = Int32 -2 
+let sender_not_same_as_reciever = Int32 -3
+
+contract DecentralisedIndexFund (owner: ByStr20, init_supply: Uint256)
+
+field nfts : Map ByStr20 (Map Uint256 Bool) = Emp ByStr20 (Map Uint256 Bool)
+field owners : Map ByStr20 Uint256 = Emp ByStr20 Uint256
+field total_supply : Uint256 = init_supply
+field contract_owner : ByStr20 = owner
+
+procedure SenderRecieverSame(address: ByStr20)
+  is_equal = builtin eq address _sender;
+  match is_equal with
+    | True =>
+      e = mk_error_event sender_not_same_as_reciever;
+      throw e
+    | False =>
+  end
+end
+
+procedure CheckOwnership(address: ByStr20)
+  is_sender = builtin eq _sender address;
+  match is_sender with 
+    | False =>
+      e = mk_error_event insufficient_access_err_code;
+      throw e
+    | True =>
+  end
+end
+
+procedure TokenUnavailable(tokens: Uint256)
+    supply <- total_supply;
+    is_greater = builtin lt supply tokens;
+    match is_greater with 
+        | True =>
+          e = mk_error_event tokens_not_available;
+          throw e
+        | False =>
+    end
+end
+
+procedure IfSufficientBalance(to: ByStr20, amount: Uint256)
+    current_balance <- owners[_sender];
+    match current_balance with
+      | Some val =>
+        is_greater = builtin lt val amount;
+        match is_greater with
+          | True =>
+            e = mk_error_event tokens_not_available;
+            throw e
+          | False =>
+        end
+      | None =>
+        e = mk_error_event tokens_not_available;
+        throw e
+    end
+end
+
+procedure MoveBalance(to: ByStr20, amount: Uint256)
+  sender_old_balance <- owners[_sender];
+  reciever_old_balance <- owners[to];
+  match sender_old_balance with
+    |Some s_old_val =>
+      s_new_val = builtin sub s_old_val amount;
+      owners[_sender] := s_new_val;
+      match reciever_old_balance with
+       |Some r_old_val =>
+        r_new_val = builtin add r_old_val amount;  
+        owners[to] := r_new_val
+       |None =>
+        owners[to] := amount
+       end
+    |None =>
+  end
+end
+
+transition BuyTokens(tokens: Uint256)
+    supply <- total_supply;
+    TokenUnavailable tokens;
+    owners[_sender] := tokens;
+    new_token_supply = builtin sub supply tokens;
+    total_supply := new_token_supply;
+    e = {_eventname: "BuyTokens"; reciever: _sender; amount: tokens};
+    event e;
+    msg_to_sender = {_tag : "TransferSuccessCallBack"; _recipient : _sender; _amount : zero; 
+    sender : _sender; tokens : tokens};
+    msgs = one_msg msg_to_sender;
+    send msgs
+end
+
+transition TransferTokens(to: ByStr20, amount: Uint256)
+  SenderRecieverSame to;
+  IfSufficientBalance to amount;
+  MoveBalance to amount;
+  e = {_eventname : "TransferSuccess"; sender : _sender; recipient : to; amount : amount};
+  event e;
+  msg_to_sender = {_tag: "TransferSuccessCallback"; _recipient: _sender; _amount: zero; amount: amount; to: to};
+  msg_to_recipient = {_tag: "RecipientTransferSuccess"; _recipient: to; _amount: zero; amount: amount; sender: _sender};
+  msgs = two_msgs msg_to_sender msg_to_recipient;
+  send msgs
+
+end
+
+transition balanceOf(address: ByStr20)
+  balance <- owners[address];
+  match balance with
+    | Some val =>
+      e = {_eventname : "GetIndexInfo"; address: address; balance: val};
+      event e
+    | None =>
+  end
+end
+
+transition AddToDIF(from: ByStr20, token_id: Uint256)
+  owner_addr <- contract_owner;
+  CheckOwnership owner_addr;
+  nfts[from][token_id] := yes;
+  e = {_eventname: "AddToDif"; from: from; token_id: token_id};
+  event e
+end
+
+transition RecipientAcceptTransferFrom(from: ByStr20, recipient: ByStr20, token_id: Uint256)
+    nfts[from][token_id] := no
+end
+transition RecipientAcceptTransfer(from: ByStr20, recipient: ByStr20, token_id: Uint256)
+    nfts[from][token_id] := no
+end
