@@ -1,8 +1,11 @@
 scilla_version 0
+import IntUtils
 
 library DecentralisedIndex
 
 let zero = Uint128 0
+let one = Uint128 1
+let two = Uint32 2
 let yes = True
 let no = False
 
@@ -21,16 +24,23 @@ let mk_error_event =
   fun (err_code : Int32) =>
     { _exception : "Error" ; err_code : err_code }
 
+let get_val =
+  fun (some_val: Option Uint128) =>
+     match some_val with
+        | Some val => val
+        | None => zero
+     end
 
 let insufficient_access_err_code = Int32 -1
 let tokens_not_available = Int32 -2 
 let sender_not_same_as_reciever = Int32 -3
+let price_not_match_emission_algorithm = Int32 -4
 
-contract DecentralisedIndexFund (owner: ByStr20, init_supply: Uint256)
+contract DecentralisedIndexFund (owner: ByStr20, init_supply: Uint128)
 
 field nfts : Map ByStr20 (Map Uint256 Bool) = Emp ByStr20 (Map Uint256 Bool)
-field owners : Map ByStr20 Uint256 = Emp ByStr20 Uint256
-field total_supply : Uint256 = init_supply
+field owners : Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field total_supply : Uint128 = init_supply
 field contract_owner : ByStr20 = owner
 
 procedure SenderRecieverSame(address: ByStr20)
@@ -53,7 +63,7 @@ procedure CheckOwnership(address: ByStr20)
   end
 end
 
-procedure TokenUnavailable(tokens: Uint256)
+procedure TokenUnavailable(tokens: Uint128)
     supply <- total_supply;
     is_greater = builtin lt supply tokens;
     match is_greater with 
@@ -64,7 +74,7 @@ procedure TokenUnavailable(tokens: Uint256)
     end
 end
 
-procedure IfSufficientBalance(to: ByStr20, amount: Uint256)
+procedure IfSufficientBalance(to: ByStr20, amount: Uint128)
     current_balance <- owners[_sender];
     match current_balance with
       | Some val =>
@@ -81,7 +91,7 @@ procedure IfSufficientBalance(to: ByStr20, amount: Uint256)
     end
 end
 
-procedure MoveBalance(to: ByStr20, amount: Uint256)
+procedure MoveBalance(to: ByStr20, amount: Uint128)
   sender_old_balance <- owners[_sender];
   reciever_old_balance <- owners[to];
   match sender_old_balance with
@@ -99,21 +109,66 @@ procedure MoveBalance(to: ByStr20, amount: Uint256)
   end
 end
 
-transition BuyTokens(tokens: Uint256)
-    supply <- total_supply;
-    TokenUnavailable tokens;
-    owners[_sender] := tokens;
-    new_token_supply = builtin sub supply tokens;
-    total_supply := new_token_supply;
-    e = {_eventname: "BuyTokens"; reciever: _sender; amount: tokens};
-    event e;
-    msg_to_sender = {_tag : "TransferSuccessCallBack"; _recipient : _sender; _amount : zero; 
-    sender : _sender; tokens : tokens};
-    msgs = one_msg msg_to_sender;
-    send msgs
+procedure AddTokens(tokens: Uint128)
+  sender_old_balance <- owners[_sender];
+  match sender_old_balance with 
+  | Some old_val =>
+    new_val = builtin add old_val tokens;
+    owners[_sender] := new_val
+  | None =>
+    owners[_sender] := tokens
+  end
 end
 
-transition TransferTokens(to: ByStr20, amount: Uint256)
+procedure AuthorizedMint(recipient: ByStr20, amount: Uint128) 
+  o_recipient_bal <- owners[recipient];
+  bal = get_val o_recipient_bal;
+  new_balance = builtin add amount bal;
+  owners[recipient] := new_balance;
+  current_total_supply <- total_supply;
+  new_total_supply = builtin add current_total_supply amount;
+  total_supply := new_total_supply;
+  e = {_eventname: "Minted"; minter: _sender; recipient: recipient; amount: amount};
+  event e
+end
+
+transition Mint(recipient: ByStr20, amount: Uint128)
+  owner_addr <- contract_owner;
+  CheckOwnership owner_addr;
+  AuthorizedMint recipient amount;
+  msg_to_recipient = {_tag : "RecipientAcceptMint"; _recipient : recipient; _amount : zero; 
+                      minter : _sender; recipient : recipient; amount : amount};
+  msg_to_sender = {_tag : "MintSuccessCallBack"; _recipient : _sender; _amount : zero; 
+                      minter : _sender; recipient : recipient; amount : amount};
+  msgs = two_msgs msg_to_recipient msg_to_sender;
+  send msgs
+end
+
+transition BuyTokens(tokens: Uint128)
+    supply <- total_supply;
+    TokenUnavailable tokens;
+    sold = builtin sub init_supply supply;
+    price = builtin pow sold two;
+    is_amount_correct =  uint128_ge _amount price;
+    match is_amount_correct with
+      | True => 
+        accept;
+        AddTokens tokens;
+        new_token_supply = builtin sub supply tokens;
+        total_supply := new_token_supply;
+        e = {_eventname: "BuyTokens"; reciever: _sender; amount: tokens};
+        event e;
+        msg_to_sender = {_tag : "TransferSuccessCallBack"; _recipient : _sender; _amount : zero; 
+        sender : _sender; tokens : tokens};
+        msgs = one_msg msg_to_sender;
+        send msgs
+      | False =>
+        e = mk_error_event price_not_match_emission_algorithm;
+        throw e
+    end
+end
+
+transition TransferTokens(to: ByStr20, amount: Uint128)
   SenderRecieverSame to;
   IfSufficientBalance to amount;
   MoveBalance to amount;
