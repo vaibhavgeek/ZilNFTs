@@ -8,7 +8,7 @@ Decentralised Index Fund smart contract enables a person to batch NFTs and creat
 | -1      | Insufficient Previliges to access transition. Some transitions are meant only for the owner to be accessed. |
 | -2   | Sufficient amount of tokens are not available (as much you want to buy) from total supply or transfer from the person.     |
 | -3          |      Sender and Recieiver cannot be same address in case of Transfer of tokens       |
-
+| -4  | When minting the payment amount is not same as that of NFT. 
 ## Transitions 
 ### RecipientAcceptTransferFrom | RecipientAcceptTransfer
 ```transition RecipientAcceptTransferFrom(from: ByStr20, recipient: ByStr20, token_id: Uint256)```
@@ -52,6 +52,15 @@ Parameters,
 | to      | Address of recipient |
 | amount  | Number of tokens he / she wants to transfer|
 
+### MintTokens
+```transition Mint(recipient: ByStr20, amount: Uint128)```
+The owner of the contract can mint tokens for IndexFund. 
+
+Parameters, 
+| Param        | Description |
+| ----------- | ----------- |
+| recipient      | Recipient of the minted tokens |
+| amount  | Number of tokens he / she wants to mint|
 ### balanceOf
 ```transition balanceOf(address: ByStr20)```
 Gets the balance of the address associated. 
