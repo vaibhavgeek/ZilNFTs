@@ -11,7 +11,7 @@ const { Zilliqa } = require("@zilliqa-js/zilliqa");
 
 
 function App() {
-  const data = [
+  const test = [
     { name: 'Group A', value: 400 },
     { name: 'Group B', value: 300 },
     { name: 'Group C', value: 300 },
@@ -43,12 +43,21 @@ function App() {
 
     let owners = tokenInfo.result["owners"];
     let nfts = tokenInfo.result["nfts"];
-
+    let ownerstemp = [];
+    let nfttemp = [];
+    {Object.keys(owners).map(function (keyName, keyIndex) {
+        console.log("keyname", keyName);
+        console.log("value", owners[keyName]);
+        ownerstemp.push({name: keyName, value: owners[keyName]});
+    })};
+    {Object.keys(nfts).map(function (keyName, keyIndex) {
+      
+    })};
     console.log(owners);
     console.log(nfts);
 
     return {
-      owners: owners,
+      owners: ownerstemp,
       nfts: nfts
     }
   };
@@ -73,11 +82,7 @@ function App() {
               outerRadius={200}
               dataKey="value"
             >
-              {Object.keys(owners).map(function (keyName, keyIndex) {
-                return (
-                  <Cell key={`cell-${keyIndex}`} fill={`#` + (Math.random().toString(16) + `00000`).slice(2, 8)} />
-                )
-              })}
+               
 
             </Pie>
           </PieChart>
@@ -87,14 +92,14 @@ function App() {
           <th>Owner Address</th>
           <th>Token ID</th>
         </tr>
-        {Object.keys(nfts).map(function (keyName, keyIndex) {
+        {/* {Object.keys(nfts).map(function (keyName, keyIndex) {
           return (
             <tr>
               <td> {keyName}  </td>
               <td> {keyIndex} </td>
             </tr>
           )
-        })}
+        })} */}
        
 
       </table>

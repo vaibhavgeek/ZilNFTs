@@ -39,9 +39,12 @@ let price_not_match_emission_algorithm = Int32 -4
 contract DecentralisedIndexFund (owner: ByStr20, init_supply: Uint128)
 
 field nfts : Map ByStr20 (Map Uint256 Bool) = Emp ByStr20 (Map Uint256 Bool)
+field nftamounts: Map ByStr20 (Map Uint256 Uint128) = Emp ByStr20 (Map Uint256 Uint128)
+
 field owners : Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field total_supply : Uint128 = init_supply
 field contract_owner : ByStr20 = owner
+field net_value: Uint128 = zero
 
 procedure SenderRecieverSame(address: ByStr20)
   is_equal = builtin eq address _sender;
@@ -181,27 +184,61 @@ transition TransferTokens(to: ByStr20, amount: Uint128)
 
 end
 
-transition balanceOf(address: ByStr20)
+transition indexValue(address: ByStr20)
   balance <- owners[address];
+  current_val <- net_value;
+
   match balance with
     | Some val =>
-      e = {_eventname : "GetIndexInfo"; address: address; balance: val};
+      e = {_eventname : "GetIndexInfo"; address: address; balance: val; total_value: current_val};
       event e
     | None =>
   end
 end
 
-transition AddToDIF(from: ByStr20, token_id: Uint256)
+transition fundValue()
+  current_val <- net_value;
+  e = {_eventname : "GetFundValue"; total_value: current_val};
+  event e 
+end
+
+
+transition AddToDIF(contract_addr: ByStr20, token_id: Uint256, amount: Uint128)
   owner_addr <- contract_owner;
+  current_val <- net_value;
   CheckOwnership owner_addr;
-  nfts[from][token_id] := yes;
-  e = {_eventname: "AddToDif"; from: from; token_id: token_id};
+  nfts[contract_addr][token_id] := yes;
+  nftamounts[contract_addr][token_id] := amount;
+  tempval = builtin add current_val amount;
+  net_value := tempval;
+  e = {_eventname: "AddToDif"; from: contract_addr; token_id: token_id};
+  event e
+end
+
+procedure upadateTempValue(contract_addr: ByStr20, token_id: Uint256)
+  amount <- nftamounts[contract_addr][token_id];
+  current_val <- net_value;
+  match amount with
+    | Some am =>
+      tempval = builtin sub current_val am;
+      net_value := tempval
+    | None =>
+  end
+end
+transition RemoveFromDIF(contract_addr: ByStr20, token_id: Uint256)
+  owner_addr <- contract_owner;
+  current_val <- net_value;
+  upadateTempValue contract_addr token_id;
+  CheckOwnership owner_addr;
+  delete nfts[contract_addr][token_id];
+  delete nftamounts[contract_addr][token_id];
+  e = {_eventname: "RemoveFromDIF"; from: contract_addr; token_id: token_id};
   event e
 end
 
 transition RecipientAcceptTransferFrom(from: ByStr20, recipient: ByStr20, token_id: Uint256)
-    nfts[from][token_id] := no
+    nfts[_sender][token_id] := no
 end
 transition RecipientAcceptTransfer(from: ByStr20, recipient: ByStr20, token_id: Uint256)
-    nfts[from][token_id] := no
+    nfts[_sender][token_id] := no
 end

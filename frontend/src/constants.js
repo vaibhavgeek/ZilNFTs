@@ -1,4 +1,4 @@
 module.exports = Object.freeze({
-    CONTRACT_ADDRESS: 'f6e7c3ce19d492ae6308666e21dc46c998c2c1f5',
+    CONTRACT_ADDRESS: '8631a3d59d0a55d4711cb89cd32ce2d4602f20b1',
   });
   
