@@ -1,5 +1,5 @@
 import React, { useState, useEffect, PureComponent } from "react";
-import { PieChart, Pie, Sector, Cell, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Sector,Tooltip, Cell, ResponsiveContainer } from 'recharts';
 
 import './App.css';
 const constants = require('./constants');
@@ -8,15 +8,43 @@ const { BN, Long, bytes, units } = require("@zilliqa-js/util");
 const { toBech32Address } = require("@zilliqa-js/crypto");
 const { Zilliqa } = require("@zilliqa-js/zilliqa");
 
+const GetContractInformation = async (tokenAddress) => {
+  const zilliqa = new Zilliqa('https://dev-api.zilliqa.com');
+
+  const tokenInfo = await zilliqa
+    .blockchain
+    .getSmartContractState(tokenAddress);
+
+  let ownerst = tokenInfo.result["owners"];
+  let nftst = tokenInfo.result["nftamounts"];
+  let ownerstemp = [];
+  let nfttemp = [];
+
+  Object.keys(ownerst).map(function (keyName, keyIndex) {
+    ownerstemp.push({ name: keyName, value: parseInt(ownerst[keyName]) });
+  });
+  Object.keys(nftst).map(function (key, keyIndex) {
+    let json_push = {};
+    json_push["address"] = key;
+    Object.keys(nftst[key]).map(function (keyName, keyIndex){
+      json_push["token_id"] = keyName;
+      json_push["amount"] = nftst[key][keyName];
+      nfttemp.push(json_push);
+    }); 
+  });
+
+  console.log(nfttemp);
+
+  return {
+    owners: ownerstemp,
+    nfts: nfttemp
+  }
+};
+
 
 
 function App() {
-  const test = [
-    { name: 'Group A', value: 400 },
-    { name: 'Group B', value: 300 },
-    { name: 'Group C', value: 300 },
-    { name: 'Group D', value: 200 },
-  ];
+  
   const RADIAN = Math.PI / 180;
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
@@ -34,36 +62,11 @@ function App() {
   const [owners, setOwners] = useState([]);
   const [nfts, setNFTs] = useState([]);
 
-  const GetContractInformation = async (tokenAddress) => {
-    const zilliqa = new Zilliqa('https://dev-api.zilliqa.com');
 
-    const tokenInfo = await zilliqa
-      .blockchain
-      .getSmartContractState(tokenAddress);
 
-    let owners = tokenInfo.result["owners"];
-    let nfts = tokenInfo.result["nfts"];
-    let ownerstemp = [];
-    let nfttemp = [];
-    {Object.keys(owners).map(function (keyName, keyIndex) {
-        console.log("keyname", keyName);
-        console.log("value", owners[keyName]);
-        ownerstemp.push({name: keyName, value: owners[keyName]});
-    })};
-    {Object.keys(nfts).map(function (keyName, keyIndex) {
-      
-    })};
-    console.log(owners);
-    console.log(nfts);
-
-    return {
-      owners: ownerstemp,
-      nfts: nfts
-    }
-  };
-
-  useEffect(() => {
-    const data = GetContractInformation(constants.CONTRACT_ADDRESS);
+  useEffect(async() => {
+    const data = await GetContractInformation(constants.CONTRACT_ADDRESS);
+    console.log("data", data);
     setOwners(data["owners"]);
     setNFTs(data["nfts"]);
   }, []);
@@ -72,37 +75,48 @@ function App() {
     <div className="App">
       <h1>Decnetralised Index Fund </h1>
       <center>
-        <div style={{ width: "1000px", color: "black" }} className="App">
-          <PieChart width={1000} height={400}>
-            <Pie
-              data={owners}
-              cx="50%"
-              cy="50%"
-              labelLine={true}
-              outerRadius={200}
-              dataKey="value"
-            >
-               
+        {owners.length > 0 && (
+          <div style={{ width: "1000px", color: "black" }} className="App">
+            <PieChart width={1000} height={400}>
+              <Pie
+                data={owners}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={renderCustomizedLabel}
+                outerRadius={200}
+                fill="#8884d8"
+                dataKey="value"
+              >
+              {owners.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={`#` + (Math.random().toString(16) + `00000`).slice(2, 8)} />
+            ))}
+              
 
-            </Pie>
-          </PieChart>
-        </div></center>
+
+
+              </Pie><Tooltip />
+            </PieChart>
+          </div>
+        )}
+     
       <table>
         <tr>
           <th>Owner Address</th>
           <th>Token ID</th>
+          <th>Amount</th>
         </tr>
-        {/* {Object.keys(nfts).map(function (keyName, keyIndex) {
-          return (
-            <tr>
-              <td> {keyName}  </td>
-              <td> {keyIndex} </td>
-            </tr>
-          )
-        })} */}
-       
 
-      </table>
+            {nfts.length > 0 && nfts.map((entry, index) => (
+        <tr>      
+          <td>{entry["address"]}</td>
+          <td>{entry["token_id"]}</td>
+          <td>{entry["amount"]}</td>
+          </tr>
+            ))}
+
+
+      </table> </center>
     </div>
   );
 };

@@ -71,7 +71,6 @@ Parameters,
 | address      | Address of inquired balance |
 
 ## Frontend Screenshot
-- Uploaded soon
-
+!["Image Screenshot"](https://i.imgur.com/fcKxKU1.png)
 ## Demo Video 
 - Uploaded Soon 
