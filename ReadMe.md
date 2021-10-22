@@ -1,6 +1,8 @@
 ## About Decentralised Index Fund 
 Decentralised Index Fund smart contract enables a person to batch NFTs and create fungible tokens that can be traded and distributed. The tokens are minted based on token bonding emission cruve y = x ^ 2 where y is the price of token issues and x is total tokens sold. This contract also helps calculate NAV(Net Asset Value) of underlying NFTs and displays the stats on a react frontend
 
+!["About DIF"](https://i.imgur.com/6zbB5c1.png)
+
 ---
 ## Error Codes 
 | Code        | Description |
